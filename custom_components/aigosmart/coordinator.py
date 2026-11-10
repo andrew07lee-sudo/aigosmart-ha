@@ -60,8 +60,10 @@ class AigoCoordinator(DataUpdateCoordinator):
             except Exception as exc:
                 self.session.diagnostics.operation_failed('service_invoke', exc)
                 self.write_result = 'invoke_outcome_unknown'
-                detail = getattr(self.client, 'last_error', None)
-                raise HomeAssistantError(f'Service call failed or outcome unknown; not retried. Vendor reply: {detail}') from None
+                detail = {'vendor': getattr(self.client, 'last_error', None), 'type': type(exc).__name__,
+                          'text': str(exc)[:100], 'http': getattr(exc, 'status', None), 'code': getattr(exc, 'code', None),
+                          'validation': getattr(exc, 'validation', None), 'exception': getattr(exc, 'exception', None)}
+                raise HomeAssistantError(f'Service call failed or outcome unknown; not retried. Detail: {detail}') from None
             self.write_result = 'invoke_accepted_unconfirmed'
             await asyncio.sleep(2)
             try:
