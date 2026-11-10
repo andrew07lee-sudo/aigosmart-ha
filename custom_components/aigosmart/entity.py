@@ -11,7 +11,7 @@ class AigoEntity(CoordinatorEntity):
         ident = hashlib.sha256(coordinator.device['iotId'].encode()).hexdigest()
         self._attr_unique_id = f'{ident}_{self.__class__.__name__}_{key}'
         self._attr_name = key
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, ident)}, name='AigoSmart kettle', manufacturer='Aigostar')
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, ident)}, name='AigoSmart device', manufacturer='Aigostar')
 
     @property
     def available(self):

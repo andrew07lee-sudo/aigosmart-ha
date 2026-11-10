@@ -9,7 +9,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ('status', 'Target_temperature', 'Time', 'heatpreservation')] + [
         AigoSessionSensor(entry.runtime_data, key) for key in
         SENSOR_NAMES] + [AigoEnumDescriptionSensor(entry.runtime_data, key)
-                        for key in ('Mode', 'status')])
+                        for key in ('Mode', 'status')] + [AigoPropertiesSensor(entry.runtime_data)])
 
 class AigoSensor(AigoEntity, SensorEntity):
     @property
@@ -73,3 +73,36 @@ class AigoSessionSensor(AigoEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         return None
+
+
+class AigoPropertiesSensor(AigoEntity, SensorEntity):
+    """Fork addition (Nobleza litter box): every property the device reports plus its live TSL.
+
+    Read-only discovery aid; no commands are sent. State = number of reported properties.
+    """
+    _attr_icon = 'mdi:format-list-bulleted'
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator, 'all_properties')
+        self._attr_name = 'All properties'
+
+    @property
+    def available(self):
+        return bool(self.coordinator.last_update_success and self.coordinator.data is not None)
+
+    @property
+    def native_value(self):
+        return len(self.coordinator.data or {})
+
+    @property
+    def extra_state_attributes(self):
+        values = {}
+        for ident, item in (self.coordinator.data or {}).items():
+            if isinstance(item, dict):
+                values[ident] = {'value': item.get('value'), 'time': item.get('time')}
+        model = self.coordinator.model or {}
+        rows = []
+        for row in model.get('properties', []):
+            rows.append({'id': row.get('identifier'), 'name': row.get('name'), 'access': row.get('access'),
+                         'type': row.get('data_type'), 'constraints': row.get('constraints')})
+        return {'values': values, 'model': rows}
