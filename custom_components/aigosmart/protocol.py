@@ -496,6 +496,10 @@ class Client:
             headers['Content-MD5'] = md5
         result = self.request('POST', host + path, headers, body)
         if not form and result.get('code') != 200:
+            # Fork: keep the vendor's numeric code and short message for service-call diagnostics (no tokens in these fields).
+            msg = result.get('localizedMsg') or result.get('message')
+            self.last_error = {'code': result.get('code') if isinstance(result.get('code'), int) else None,
+                               'message': msg[:160] if isinstance(msg, str) and '@' not in msg else None}
             raise APIError('API odrzuciło żądanie; możliwa wymagana weryfikacja konta.')
         return result
 
