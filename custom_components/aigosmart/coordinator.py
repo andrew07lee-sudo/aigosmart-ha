@@ -42,6 +42,34 @@ class AigoCoordinator(DataUpdateCoordinator):
                     raise ConfigEntryAuthFailed('Authentication required') from None
                 raise UpdateFailed(f'{stage}: {reason}') from None
 
+    async def async_invoke(self, identifier, args=None):
+        async with self._io_lock:
+            if not self.last_update_success:
+                raise HomeAssistantError('Device unavailable')
+            try:
+                await self.session.ensure()
+            except ConfigEntryAuthFailed:
+                self.entry.async_start_reauth(self.hass)
+                raise HomeAssistantError('Reauthentication required') from None
+            except Exception:
+                raise HomeAssistantError('Session temporarily unavailable') from None
+            try:
+                await self.hass.async_add_executor_job(self.client.invoke, self.device, self.model, identifier, args or {})
+            except ValueError as exc:
+                raise HomeAssistantError(f'Service rejected by TSL policy: {exc}') from None
+            except Exception as exc:
+                self.session.diagnostics.operation_failed('service_invoke', exc)
+                self.write_result = 'invoke_outcome_unknown'
+                raise HomeAssistantError('Service call failed or outcome unknown; not retried') from None
+            self.write_result = 'invoke_accepted_unconfirmed'
+            await asyncio.sleep(2)
+            try:
+                data = await self.session.read(self.client.properties, self.device)
+                self.async_set_updated_data(data)
+            except Exception:
+                pass
+            return self.write_result
+
     async def async_write(self, identifier, value):
         async with self._io_lock:
             if not self.last_update_success:

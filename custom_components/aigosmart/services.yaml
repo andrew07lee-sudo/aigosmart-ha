@@ -1,0 +1,26 @@
+set_property:
+  fields:
+    identifier:
+      required: true
+      example: autoDelay
+      selector:
+        text:
+    value:
+      required: true
+      example: 3
+      selector:
+        number:
+          min: -100000
+          max: 2147483647
+          mode: box
+invoke_service:
+  fields:
+    identifier:
+      required: true
+      example: ""
+      selector:
+        text:
+    args:
+      required: false
+      selector:
+        object:

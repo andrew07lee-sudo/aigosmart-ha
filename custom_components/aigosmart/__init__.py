@@ -33,6 +33,7 @@ async def async_setup_entry(hass, entry):
     coordinator.session.schedule()
     coordinator._entry_options = dict(entry.options)
     entry.runtime_data = coordinator
+    _register_services(hass)
     entry.async_on_unload(entry.add_update_listener(_reload))
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -70,3 +71,31 @@ async def async_migrate_entry(hass, entry):
     if entry.version == 1:
         hass.config_entries.async_update_entry(entry, version=2)
     return True
+
+
+def _register_services(hass):
+    """Fork addition: set_property and invoke_service (single entry; guarded by the live TSL)."""
+    import voluptuous as vol
+    from homeassistant.exceptions import HomeAssistantError
+    from .const import DOMAIN
+
+    def coordinator():
+        entries = [e for e in hass.config_entries.async_entries(DOMAIN) if getattr(e, 'runtime_data', None)]
+        if len(entries) != 1:
+            raise HomeAssistantError('Exactly one loaded AigoSmart entry is required')
+        return entries[0].runtime_data
+
+    async def set_property(call):
+        return {'result': await coordinator().async_write(call.data['identifier'], call.data['value'])}
+
+    async def invoke_service(call):
+        return {'result': await coordinator().async_invoke(call.data['identifier'], call.data.get('args') or {})}
+
+    if not hass.services.has_service(DOMAIN, 'set_property'):
+        from homeassistant.core import SupportsResponse
+        hass.services.async_register(DOMAIN, 'set_property', set_property,
+            vol.Schema({vol.Required('identifier'): str, vol.Required('value'): vol.Any(int, float)}),
+            supports_response=SupportsResponse.OPTIONAL)
+        hass.services.async_register(DOMAIN, 'invoke_service', invoke_service,
+            vol.Schema({vol.Required('identifier'): str, vol.Optional('args'): dict}),
+            supports_response=SupportsResponse.OPTIONAL)

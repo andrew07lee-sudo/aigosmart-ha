@@ -91,3 +91,36 @@ def plan(report, identifier, value):
     return {'mode': 'dry-run', 'executed': False, 'method': 'POST',
             'path': '/thing/properties/set', 'api_version': '1.0.0',
             'params': {'iotId': '<selected-device>', 'items': {identifier: value}}}
+
+
+def _ident(value):
+    return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}', value) else None
+
+
+def _fields(rows):
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not _ident(row.get('identifier')):
+            continue
+        dtype = row.get('dataType') if isinstance(row.get('dataType'), dict) else {}
+        out.append({'id': row['identifier'], 'name': text(row.get('name')), 'type': dtype.get('type'),
+                    'constraints': specs(dtype.get('specs'))})
+    return out
+
+
+def parse_extras(data):
+    """Fork addition: TSL services (actions) and events, sanitized; used for discovery and guarded invocation."""
+    if isinstance(data, str):
+        data = json.loads(data)
+    if not isinstance(data, dict):
+        return {'services': [], 'events': []}
+    services, events = [], []
+    for row in data.get('services') or []:
+        if isinstance(row, dict) and _ident(row.get('identifier')):
+            services.append({'id': row['identifier'], 'name': text(row.get('name')), 'desc': text(row.get('desc')),
+                             'input': _fields(row.get('inputData')), 'output': _fields(row.get('outputData'))})
+    for row in data.get('events') or []:
+        if isinstance(row, dict) and _ident(row.get('identifier')):
+            events.append({'id': row['identifier'], 'name': text(row.get('name')), 'type': row.get('type'),
+                           'output': _fields(row.get('outputData'))})
+    return {'services': services, 'events': events}

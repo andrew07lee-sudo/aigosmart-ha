@@ -105,4 +105,4 @@ class AigoPropertiesSensor(AigoEntity, SensorEntity):
         for row in model.get('properties', []):
             rows.append({'id': row.get('identifier'), 'name': row.get('name'), 'access': row.get('access'),
                          'type': row.get('data_type'), 'constraints': row.get('constraints')})
-        return {'values': values, 'model': rows}
+        return {'values': values, 'model': rows, 'services': model.get('services', []), 'events': model.get('events', [])}
