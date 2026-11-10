@@ -355,6 +355,11 @@ class Client:
                 code = 'UNKNOWN'
             if parts.path == REFRESH:
                 self.refresh_diagnostics = session_shape(result)
+            if parts.path.startswith('/thing/') and isinstance(result, dict) and result.get('code') != 200:
+                # Fork: keep the IoT API's own numeric code and short message for service-call diagnostics.
+                msg = result.get('localizedMsg') or result.get('message')
+                self.last_error = {'code': result.get('code') if isinstance(result.get('code'), (int, str)) else None,
+                                   'message': msg[:160] if isinstance(msg, str) and '@' not in msg else None}
             self.validate_response(parts.path, result)
             validation = 'passed'
             return result
